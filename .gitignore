@@ -1,0 +1,6 @@
+target/
+.idea/
+postman/
+*.postman_collection.json
+*.postman_environment.json
+Capstone3_Postman_Collection.json
