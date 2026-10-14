@@ -2,6 +2,7 @@ import { AfterViewInit, Component, OnDestroy, effect, inject, signal } from '@an
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from './auth.service';
 import * as L from 'leaflet';
 
@@ -15,6 +16,24 @@ interface Building { id: number; name: string; city: string; district: string; s
     <aside class="list-panel">
       <div class="panel-heading"><div><h2>Explore apartments</h2><p>{{ visible().length }} homes found</p></div><button class="small-button" (click)="reload()">Refresh</button></div>
       <div class="filters"><label>District<input [(ngModel)]="district" (ngModelChange)="filter()" placeholder="Any district"></label><label>Max rent (SAR)<input type="number" min="0" [(ngModel)]="maxRent" (ngModelChange)="filter()" placeholder="Any price"></label></div>
+      @if (selectedApartment(); as apartment) {
+        <section class="reservation-panel">
+          <h3>Apartment {{ apartment.apartmentNumber }}</h3>
+          <p>{{ apartment.monthlyRent | number:'1.0-0' }} SAR per month · {{ apartment.bedrooms }} bedrooms</p>
+          @if (auth.session()?.role === 'USER') {
+            <form (ngSubmit)="reserve(apartment)">
+              <label>Move-in date<input type="date" name="startDate" [min]="today" [(ngModel)]="startDate" required></label>
+              <label>Rental length (months)<input type="number" name="rentalMonths" min="1" max="120" [(ngModel)]="rentalMonths" required></label>
+              <button class="primary" type="submit" [disabled]="reserving() || reservedApartmentIds.has(apartment.id)">{{ reserving() ? 'Sending request…' : reservedApartmentIds.has(apartment.id) ? 'Request sent' : 'Request to rent' }}</button>
+            </form>
+            <p class="reservation-note">The owner will review your request. You are not charged now.</p>
+          } @else if (!auth.session()) {
+            <p class="reservation-note">Log in as a renter to request this apartment.</p>
+          }
+          @if (reservationMessage()) { <p class="reservation-success" role="status">{{ reservationMessage() }}</p> }
+          @if (reservationError()) { <p class="error" role="alert">{{ reservationError() }}</p> }
+        </section>
+      }
       @if (error()) { <p class="error">{{ error() }}</p> }
       @if (loading()) { <p class="empty">Loading homes…</p> }
       @for (apartment of visible(); track apartment.id) {
@@ -44,6 +63,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   visible = signal<Apartment[]>([]); selectedId = signal<number | null>(null);
   loading = signal(true); error = signal(''); district = ''; maxRent: number | null = null;
   locating = signal(false); locationStatus = signal('');
+  today = this.localDate(new Date()); startDate = this.today; rentalMonths = 12;
+  reserving = signal(false); reservationMessage = signal(''); reservationError = signal('');
+  reservedApartmentIds = new Set<number>();
 
   constructor() {
     effect(() => {
@@ -100,8 +122,36 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   buildingFor(apartment: Apartment) { return this.buildings.get(apartment.buildingId); }
   select(apartment: Apartment) {
     this.selectedId.set(apartment.id);
+    this.reservationMessage.set(''); this.reservationError.set('');
     const building = this.buildingFor(apartment);
     if (building && Number.isFinite(building.latitude) && Number.isFinite(building.longitude)) this.map?.flyTo([building.latitude, building.longitude], 15);
+  }
+  selectedApartment() { return this.apartments.find(a => a.id === this.selectedId()) ?? null; }
+  reserve(apartment: Apartment) {
+    const session = this.auth.activeSession();
+    if (session?.role !== 'USER') { this.reservationError.set('Log in as a renter to request this apartment.'); return; }
+    if (!this.startDate || this.startDate < this.today || !Number.isInteger(this.rentalMonths) || this.rentalMonths < 1) {
+      this.reservationError.set('Choose a date from today onward and a rental length of at least one month.'); return;
+    }
+    this.reserving.set(true); this.reservationError.set(''); this.reservationMessage.set('');
+    this.http.post(`/api/v1/reservation/add/${session.id}/${apartment.id}`, {
+      requestedStartDate: this.startDate, rentalMonths: this.rentalMonths
+    }).subscribe({next: () => {
+      this.reserving.set(false); this.reservedApartmentIds.add(apartment.id);
+      this.reservationMessage.set('Request sent. It is pending owner approval.');
+    }, error: (response: HttpErrorResponse) => {
+      this.reserving.set(false);
+      const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
+      this.reservationError.set(body?.message || body?.detail || (response.status === 0
+        ? 'Cannot connect to the API. Check that the server is running.'
+        : `Could not send the request (HTTP ${response.status}).`));
+    }});
+  }
+  private parseError(value: string): {message?: string; detail?: string} | null {
+    try { return JSON.parse(value); } catch { return null; }
+  }
+  private localDate(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
   private drawMarkers(apartments: Apartment[]) {
     this.markers.clearLayers(); const bounds: L.LatLngExpression[] = [];
