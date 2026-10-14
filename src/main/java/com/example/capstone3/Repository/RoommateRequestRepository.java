@@ -10,6 +10,7 @@ import java.util.List;
 
 @Repository
 public interface RoommateRequestRepository extends JpaRepository<RoommateRequest, Integer> {
+    boolean existsByIdAndReceiver_Id(Integer id, Integer receiverId);
 
     RoommateRequest findRoommateRequestById(Integer id);
 

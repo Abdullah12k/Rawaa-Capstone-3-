@@ -8,6 +8,7 @@ import java.util.List;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
+    boolean existsByIdAndUser_Id(Integer id, Integer userId);
 
     Review findReviewById(Integer id);
 

@@ -8,6 +8,8 @@ import java.util.List;
 
 @Repository
 public interface ConversationRepository extends JpaRepository<Conversation, Integer> {
+    boolean existsByIdAndUser_Id(Integer id, Integer userId);
+    boolean existsByIdAndOwner_Id(Integer id, Integer ownerId);
 
     Conversation findConversationById(Integer id);
 

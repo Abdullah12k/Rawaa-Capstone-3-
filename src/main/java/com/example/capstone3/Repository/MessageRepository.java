@@ -8,6 +8,8 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Integer> {
+    boolean existsByIdAndConversation_User_Id(Integer id, Integer userId);
+    boolean existsByIdAndConversation_Owner_Id(Integer id, Integer ownerId);
 
     Message findMessageById(Integer id);
 

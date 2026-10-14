@@ -9,6 +9,7 @@ import java.util.List;
 
 @Repository
 public interface UserPreferenceRepository extends JpaRepository<UserPreference, Integer> {
+    boolean existsByIdAndUser_Id(Integer id, Integer userId);
 
     UserPreference findUserPreferenceById(Integer id);
 

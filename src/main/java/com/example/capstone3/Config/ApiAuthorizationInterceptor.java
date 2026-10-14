@@ -1,6 +1,6 @@
 package com.example.capstone3.Config;
 
-import com.example.capstone3.Models.*;
+import com.example.capstone3.Models.Message;
 import com.example.capstone3.Repository.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,7 +36,8 @@ public class ApiAuthorizationInterceptor implements HandlerInterceptor {
         String method = request.getMethod();
         if ("OPTIONS".equals(method)) return true;
         String path = request.getRequestURI().substring("/api/v1/".length());
-        if (path.startsWith("auth/")) return true;
+        if ("POST".equals(method) && (path.equals("auth/register/user") ||
+                path.equals("auth/register/owner") || path.equals("auth/login"))) return true;
         if (isPublic(method, path)) return true;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthPrincipal actor)) deny();
@@ -187,6 +188,8 @@ public class ApiAuthorizationInterceptor implements HandlerInterceptor {
     private boolean reviewRule(AuthPrincipal actor, String action, String[] p, Map<String, String> v) {
         return switch (action) {
             case "get" -> {
+                if (p.length > 2 && "owner-analysis".equals(p[2]))
+                    yield own(actor, "OWNER", id(v, "ownerId"));
                 if (v.containsKey("userId")) yield own(actor, "USER", id(v, "userId"));
                 if (v.containsKey("ownerId")) yield own(actor, "OWNER", id(v, "ownerId"));
                 yield v.containsKey("id") || v.containsKey("apartmentId");
@@ -203,8 +206,8 @@ public class ApiAuthorizationInterceptor implements HandlerInterceptor {
             case "request" -> own(actor, "USER", id(v, "senderId"));
             case "accept", "reject" -> {
                 Integer requestId = id(v, "requestId");
-                RoommateRequest item = requestId == null ? null : roommateRequests.findById(requestId).orElse(null);
-                yield own(actor, "USER", id(v, "receiverId")) && item != null && actor.id().equals(item.getReceiver().getId());
+                yield own(actor, "USER", id(v, "receiverId")) && requestId != null &&
+                        roommateRequests.existsByIdAndReceiver_Id(requestId, actor.id());
             }
             default -> false;
         };
@@ -216,22 +219,22 @@ public class ApiAuthorizationInterceptor implements HandlerInterceptor {
     }
 
     private boolean own(AuthPrincipal actor, String role, Integer id) { return id != null && role != null && role.equalsIgnoreCase(actor.role()) && id.equals(actor.id()); }
-    private boolean ownsBuilding(AuthPrincipal a, Integer id) { Building b = id == null ? null : buildings.findById(id).orElse(null); return b != null && own(a, "OWNER", b.getOwner().getId()); }
-    private boolean ownsApartment(AuthPrincipal a, Integer id) { Apartment x = id == null ? null : apartments.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getOwner().getId()); }
-    private boolean apartmentOwnedBy(Integer apartmentId, Integer ownerId) { Apartment x = apartmentId == null ? null : apartments.findById(apartmentId).orElse(null); return x != null && ownerId != null && ownerId.equals(x.getOwner().getId()); }
-    private boolean ownsPreference(AuthPrincipal a, Integer id) { UserPreference x = id == null ? null : preferences.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }
+    private boolean ownsBuilding(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && buildings.existsByIdAndOwner_Id(id, a.id()); }
+    private boolean ownsApartment(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && apartments.existsByIdAndOwner_Id(id, a.id()); }
+    private boolean apartmentOwnedBy(Integer apartmentId, Integer ownerId) { return apartmentId != null && ownerId != null && apartments.existsByIdAndOwner_Id(apartmentId, ownerId); }
+    private boolean ownsPreference(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && preferences.existsByIdAndUser_Id(id, a.id()); }
     private boolean ownsReservation(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && reservations.existsByIdAndApartment_Owner_Id(id, a.id()); }
     private boolean userReservation(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && reservations.existsByIdAndUser_Id(id, a.id()); }
     private boolean reservationParty(AuthPrincipal a, Integer id) { return ownsReservation(a, id) || userReservation(a, id); }
     private boolean ownsContract(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && contracts.existsByIdAndReservation_Apartment_Owner_Id(id, a.id()); }
     private boolean userContract(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && contracts.existsByIdAndReservation_User_Id(id, a.id()); }
     private boolean contractParty(AuthPrincipal a, Integer id) { return ownsContract(a, id) || userContract(a, id); }
-    private boolean ownsMaintenance(AuthPrincipal a, Integer id) { MaintenanceRequest x = id == null ? null : maintenance.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getApartment().getOwner().getId()); }
-    private boolean userMaintenance(AuthPrincipal a, Integer id) { MaintenanceRequest x = id == null ? null : maintenance.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }
+    private boolean ownsMaintenance(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && maintenance.existsByIdAndApartment_Owner_Id(id, a.id()); }
+    private boolean userMaintenance(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && maintenance.existsByIdAndUser_Id(id, a.id()); }
     private boolean maintenanceParty(AuthPrincipal a, Integer id) { return ownsMaintenance(a, id) || userMaintenance(a, id); }
-    private boolean conversationParty(AuthPrincipal a, Integer id) { Conversation x = id == null ? null : conversations.findById(id).orElse(null); return x != null && (own(a, "USER", x.getUser().getId()) || own(a, "OWNER", x.getOwner().getId())); }
-    private boolean messageParty(AuthPrincipal a, Integer id) { Message x = id == null ? null : messages.findById(id).orElse(null); return x != null && conversationParty(a, x.getConversation().getId()); }
-    private boolean userReview(AuthPrincipal a, Integer id) { Review x = id == null ? null : reviews.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }
+    private boolean conversationParty(AuthPrincipal a, Integer id) { return id != null && ("USER".equals(a.role()) && conversations.existsByIdAndUser_Id(id, a.id()) || "OWNER".equals(a.role()) && conversations.existsByIdAndOwner_Id(id, a.id())); }
+    private boolean messageParty(AuthPrincipal a, Integer id) { return id != null && ("USER".equals(a.role()) && messages.existsByIdAndConversation_User_Id(id, a.id()) || "OWNER".equals(a.role()) && messages.existsByIdAndConversation_Owner_Id(id, a.id())); }
+    private boolean userReview(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && reviews.existsByIdAndUser_Id(id, a.id()); }
     private Integer id(Map<String, String> vars, String key) { return parse(vars.get(key)); }
     private Integer parse(String value) { try { return value == null ? null : Integer.valueOf(value); } catch (NumberFormatException e) { return null; } }
     private void deny() { throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"); }
