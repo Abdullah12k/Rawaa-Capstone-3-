@@ -139,8 +139,8 @@ export class DashboardComponent {
     let body = response.error;
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
     return body?.message || body?.detail || (response.status === 0
-      ? 'Cannot connect to the API. Check that the Spring Boot server is running.'
-      : `Request failed (HTTP ${response.status}).`);
+      ? 'The service is unavailable right now. Please try again shortly.'
+      : `We could not complete your request. Please try again. (Error ${response.status})`);
   }
   private localDate(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;

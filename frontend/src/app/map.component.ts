@@ -141,8 +141,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.buildings = new Map(buildings.map(b => [b.id, b]));
       this.http.get<Apartment[]>('/api/v1/apartment/get').subscribe({next: apartments => {
         this.apartments = apartments.filter(a => a.status === 'AVAILABLE'); this.loading.set(false); this.filter();
-      }, error: () => { this.loading.set(false); this.error.set('Could not load apartments. Check that the API is running.'); }});
-    }, error: () => { this.loading.set(false); this.error.set('Could not load buildings. Check that the API is running.'); }});
+      }, error: () => { this.loading.set(false); this.error.set('Apartments are unavailable right now. Please try again.'); }});
+    }, error: () => { this.loading.set(false); this.error.set('Apartments are unavailable right now. Please try again.'); }});
   }
   filter() {
     // Only available apartments are loaded into this.apartments; filters affect the list and map together.
@@ -175,8 +175,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.reserving.set(false);
       const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
       this.reservationError.set(body?.message || body?.detail || (response.status === 0
-        ? 'Cannot connect to the API. Check that the server is running.'
-        : `Could not send the request (HTTP ${response.status}).`));
+        ? 'The service is unavailable right now. Please try again shortly.'
+        : `Could not send your request. Please try again. (Error ${response.status})`));
     }});
   }
   private parseError(value: string): {message?: string; detail?: string} | null {

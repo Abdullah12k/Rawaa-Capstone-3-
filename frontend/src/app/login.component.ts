@@ -49,23 +49,23 @@ export class LoginComponent {
       const serverMessage = typeof body?.message === 'string' && body.message.trim() ? body.message.trim()
         : typeof body?.detail === 'string' && body.detail.trim() ? body.detail.trim() : '';
       if (response.status === 0) {
-        this.error.set('Cannot connect to the API. Check that the Spring Boot server is running.');
+        this.error.set('The service is unavailable right now. Please try again shortly.');
       } else if (!this.registerMode && response.status === 401) {
-        this.error.set('Email or password is incorrect. If you registered in the earlier temporary demo, create an account here for MySQL.');
+        this.error.set('Email or password is incorrect. Please try again.');
       } else if (response.status === 400) {
         this.error.set(serverMessage || 'Some details are invalid. Check each required field, email format, password length, and registration number.');
       } else if (response.status === 409) {
         this.error.set(serverMessage || 'An account already uses this email, phone number, or commercial registration number.');
       } else if (response.status === 403) {
-        this.error.set('The server blocked this request (HTTP 403). Refresh the page and try again; if it continues, check the local CORS settings.');
+        this.error.set('Your request was blocked. Refresh the page and try again.');
       } else if (response.status === 404) {
-        this.error.set('The registration service was not found (HTTP 404). Check that the Spring Boot server is running the V2 code.');
+        this.error.set('The account service is temporarily unavailable. Please try again later.');
       } else if (response.status === 429) {
         this.error.set('Too many attempts. Please wait a moment and try again.');
       } else if (response.status >= 500) {
-        this.error.set(`The server could not create the account (HTTP ${response.status}). Please try again; if it continues, share this status with the developer.`);
+        this.error.set('We could not complete your request right now. Please try again later.');
       } else {
-        this.error.set(serverMessage || `Request failed (HTTP ${response.status}). Please try again.`);
+        this.error.set(serverMessage || `We could not complete your request. Please try again. (Error ${response.status})`);
       }
     }});
   }
