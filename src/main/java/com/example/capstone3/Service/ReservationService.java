@@ -166,6 +166,7 @@ public class ReservationService {
         reservationDTOOut.setId(reservation.getId());
         reservationDTOOut.setApartmentId(reservation.getApartment().getId());
         reservationDTOOut.setUserId(reservation.getUser().getId());
+        reservationDTOOut.setRenterName(reservation.getUser().getFullName());
         reservationDTOOut.setRequestedStartDate(reservation.getRequestedStartDate());
         reservationDTOOut.setRentalMonths(reservation.getRentalMonths());
         reservationDTOOut.setStatus(reservation.getStatus());

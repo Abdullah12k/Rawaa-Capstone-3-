@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDate;
 
 @JsonPropertyOrder({
-        "id", "reservationId", "apartmentId", "userId", "contractNumber",
+        "id", "reservationId", "apartmentId", "userId", "renterName", "contractNumber",
         "contractStatus", "monthlyRent", "securityDeposit", "signed",
         "startDate", "endDate", "signedDate", "isJointContract",
         "coTenantName", "rentPerPerson", "terminationReason",
@@ -21,6 +21,7 @@ public class ContractDTOOut {
     private Integer reservationId;
     private Integer apartmentId;
     private Integer userId;
+    private String renterName;
     private String contractNumber;
     private ContractStatus contractStatus;
     private Double monthlyRent;

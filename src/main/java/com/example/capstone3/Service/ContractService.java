@@ -188,6 +188,7 @@ public class ContractService {
 
         User primaryTenant = contract.getReservation().getUser();
         contractDTOOut.setUserId(primaryTenant.getId());
+        contractDTOOut.setRenterName(primaryTenant.getFullName());
 
         contractDTOOut.setContractNumber(contract.getContractNumber());
         contractDTOOut.setStartDate(contract.getStartDate());
@@ -650,23 +651,38 @@ public class ContractService {
     // --- NOTIFICATION HOLDING PLACES ---
 
 
+    @Transactional
     public void generateAndEmailContractPdf(Integer contractId) throws IOException, MessagingException {
+        Contract contract = contractRepository.findContractById(contractId);
+        if (contract == null) throw new ApiException("Contract not found");
+        byte[] pdf = generateContractPdf(contractId);
+        emailService.sendEmailWithPdf(
+                contract.getReservation().getUser().getEmail(),
+                "Lease Contract Attachment - Apartment " + contract.getReservation().getApartment().getApartmentNumber(),
+                "<p>Your lease contract is attached.</p>",
+                pdf,
+                "Contract_" + contract.getContractNumber() + ".pdf"
+        );
+    }
+
+    @Transactional
+    public byte[] generateContractPdf(Integer contractId) throws IOException {
         Contract contract = contractRepository.findContractById(contractId);
         if (contract == null) {
             throw new ApiException("Contract not found");
         }
 
-        String tenantName     = contract.getReservation().getUser().getFullName();
-        String tenantEmail    = contract.getReservation().getUser().getEmail();
-        String tenantPhone    = contract.getReservation().getUser().getPhoneNumber();
-        String apartmentNumber = contract.getReservation().getApartment().getApartmentNumber();
+        String tenantName     = escapeHtml(contract.getReservation().getUser().getFullName());
+        String tenantEmail    = escapeHtml(contract.getReservation().getUser().getEmail());
+        String tenantPhone    = escapeHtml(contract.getReservation().getUser().getPhoneNumber());
+        String apartmentNumber = escapeHtml(contract.getReservation().getApartment().getApartmentNumber());
         String contractNum    = contract.getContractNumber();
         String monthlyRent    = String.valueOf(contract.getMonthlyRent());
-        String ownerName      = contract.getReservation().getApartment().getBuilding().getOwner().getFullName();
-        String ownerEmail     = contract.getReservation().getApartment().getBuilding().getOwner().getEmail();
-        String ownerPhone     = contract.getReservation().getApartment().getBuilding().getOwner().getPhoneNumber();
-        String buildingName   = contract.getReservation().getApartment().getBuilding().getName();
-        String district       = contract.getReservation().getApartment().getBuilding().getDistrict();
+        String ownerName      = escapeHtml(contract.getReservation().getApartment().getBuilding().getOwner().getFullName());
+        String ownerEmail     = escapeHtml(contract.getReservation().getApartment().getBuilding().getOwner().getEmail());
+        String ownerPhone     = escapeHtml(contract.getReservation().getApartment().getBuilding().getOwner().getPhoneNumber());
+        String buildingName   = escapeHtml(contract.getReservation().getApartment().getBuilding().getName());
+        String district       = escapeHtml(contract.getReservation().getApartment().getBuilding().getDistrict());
         String startDate      = contract.getStartDate().toString();
         String endDate        = contract.getEndDate().toString();
         String secDeposit     = contract.getSecurityDeposit() != null ? String.valueOf(contract.getSecurityDeposit()) : "N/A";
@@ -679,7 +695,7 @@ public class ContractService {
         String waterIncluded  = Boolean.TRUE.equals(apt.getWaterIncluded()) ? "Included" : "Not included";
         String internetIncluded   = Boolean.TRUE.equals(apt.getInternetIncluded()) ? "Included" : "Not included";
         String electricityIncluded = Boolean.TRUE.equals(apt.getElectricityIncluded()) ? "Included" : "Not included";
-        String allowedTenantType  = apt.getAllowedTenantType() != null ? apt.getAllowedTenantType() : "N/A";
+        String allowedTenantType  = apt.getAllowedTenantType() != null ? escapeHtml(apt.getAllowedTenantType()) : "N/A";
         String floorNumber        = apt.getFloorNumber() != null ? String.valueOf(apt.getFloorNumber()) : "N/A";
 
         Building building     = contract.getReservation().getApartment().getBuilding();
@@ -731,7 +747,7 @@ public class ContractService {
                 "<div class='brand-mark'>&#9632;</div>" +
                 "<div class='brand-name'>RAWAA</div>" +
                 "<div class='brand-sub'>SMART RENTAL PLATFORM</div>" +
-                "<h1 class='document-title'>Official lease agreement</h1>" +
+                "<h1 class='document-title'>Rental contract</h1>" +
                 "<div class='document-meta'>Contract no: <strong>" + contractNum + "</strong> &#160; | &#160; Status: <span class='status'>" + status + "</span></div>" +
                 "</div>" +
                 "<div class='divider'></div>" +
@@ -798,8 +814,8 @@ public class ContractService {
                 "</tr>" +
                 "</table>" +
 
-                "<div class='footer'>This document is an official lease agreement generated by Rawaa - Smart Rental Platform. " +
-                "Both parties are bound by the terms stated above.</div>" +
+                "<div class='footer'>This document records the rental terms shown above. " +
+                "Its status and signature fields show whether the tenant has accepted it.</div>" +
                 "</div></body></html>";
 
         ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -808,13 +824,12 @@ public class ContractService {
         builder.toStream(os);
         builder.run();
 
-        emailService.sendEmailWithPdf(
-                tenantEmail,
-                "Lease Contract Attachment - Apartment " + apartmentNumber,
-                "<p>Dear " + tenantName + ", please find your formalized lease contract attached.</p>",
-                os.toByteArray(),
-                "Contract_" + contractNum + ".pdf"
-        );
+        return os.toByteArray();
+    }
+
+    private String escapeHtml(String value) {
+        return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
     }
 
 }

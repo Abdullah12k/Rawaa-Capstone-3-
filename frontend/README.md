@@ -33,7 +33,7 @@ Angular's development proxy forwards `/api` calls to `http://localhost:8080`, so
 4. The map can request the browser's location for a signed-in account. The browser controls permission and returns an estimated location with an accuracy radius. Rawaa does not save this location in the account.
 5. A renter selects an available apartment, chooses a start date and rental length, and sends a request. The API creates a `PENDING` reservation.
 6. The owner reviews the request in their dashboard and approves or rejects it. An approved request becomes `APPROVED`, and the owner can create a `PENDING` contract with an optional security deposit.
-7. The renter sees the contract terms in their dashboard and can accept or reject them. The existing API permits acceptance on or after the contract start date. Acceptance changes the contract to `ACTIVE` and the apartment to `RENTED`. No payment is collected by this frontend.
+7. Both parties can open the complete contract PDF from their dashboards. The renter must open it and confirm they have read it before accepting. The API permits acceptance on or after the contract start date. Acceptance changes the contract to `ACTIVE` and the apartment to `RENTED`. No payment is collected by this frontend.
 
 Contract email is optional in local development. Set `EMAIL_NOTIFICATIONS_ENABLED=true` only when working SMTP credentials are configured.
 

@@ -7,6 +7,8 @@ import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -26,6 +28,14 @@ public class ContractController {
     @GetMapping("/get/{id}")
     public ResponseEntity<?> getContract(@PathVariable Integer id) {
         return ResponseEntity.status(200).body(contractService.getContract(id));
+    }
+
+    @GetMapping("/get/{id}/pdf")
+    public ResponseEntity<byte[]> getContractPdf(@PathVariable Integer id) throws IOException {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=Rawaa-Contract-" + id + ".pdf")
+                .body(contractService.generateContractPdf(id));
     }
 
     @PostMapping("/add/{ownerId}/{reservation_id}")

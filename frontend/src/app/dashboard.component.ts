@@ -1,7 +1,8 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { forkJoin, Observable } from 'rxjs';
 import { AuthService, Session } from './auth.service';
@@ -9,11 +10,11 @@ import { AuthService, Session } from './auth.service';
 interface Apartment { id: number; apartmentNumber: string; buildingId: number }
 interface Building { id: number; name: string }
 interface Reservation {
-  id: number; apartmentId: number; userId: number; status: string;
+  id: number; apartmentId: number; userId: number; renterName: string; status: string;
   requestedStartDate: string; rentalMonths: number;
 }
 interface Contract {
-  id: number; reservationId: number; apartmentId: number; userId: number;
+  id: number; reservationId: number; apartmentId: number; userId: number; renterName: string;
   contractNumber: string; contractStatus: string; monthlyRent: number;
   securityDeposit: number | null; startDate: string; endDate: string;
 }
@@ -31,7 +32,7 @@ interface Contract {
     <section class="dashboard-card"><h2>Rental requests</h2>
       @for (item of reservations(); track item.id) {
         <article class="rental-item">
-          <div><h3>{{ apartmentName(item.apartmentId) }}</h3><p class="muted">Renter #{{ item.userId }} · Start {{ item.requestedStartDate }} · {{ item.rentalMonths }} months</p></div>
+          <div><h3>{{ apartmentName(item.apartmentId) }}</h3><p class="muted">{{ item.renterName }} · Start {{ item.requestedStartDate }} · {{ item.rentalMonths }} months</p></div>
           <span class="status">{{ item.status }}</span>
           @if (item.status === 'PENDING') {
             <div class="rental-actions"><button class="primary" type="button" [disabled]="busy()" (click)="approve(item)">Approve request</button><button class="small-button" type="button" [disabled]="busy()" (click)="rejectReservation(item)">Reject</button></div>
@@ -47,7 +48,7 @@ interface Contract {
     </section>
     <section class="dashboard-card"><h2>Contracts</h2>
       @for (item of contracts(); track item.id) {
-        <article class="rental-item"><div><h3>{{ apartmentName(item.apartmentId) }}</h3><p class="muted">{{ item.contractNumber }} · Renter #{{ item.userId }}</p><p>{{ item.startDate }} to {{ item.endDate }} · {{ item.monthlyRent | number:'1.0-0' }} SAR/month</p></div><span class="status">{{ item.contractStatus }}</span></article>
+        <article class="rental-item"><div><h3>{{ apartmentName(item.apartmentId) }}</h3><p class="muted">{{ item.contractNumber }} · {{ item.renterName }}</p><p>{{ item.startDate }} to {{ item.endDate }} · {{ item.monthlyRent | number:'1.0-0' }} SAR/month</p></div><span class="status">{{ item.contractStatus }}</span><div class="rental-actions"><button class="small-button" type="button" (click)="openContract(item)">View full contract</button></div></article>
       } @empty { <p class="muted">No contracts yet.</p> }
     </section>
   }
@@ -64,23 +65,45 @@ interface Contract {
       @for (item of contracts(); track item.id) {
         <article class="rental-item"><div><h3>{{ apartmentName(item.apartmentId) }}</h3><p class="muted">{{ item.contractNumber }}</p><p>{{ item.startDate }} to {{ item.endDate }} · {{ item.monthlyRent | number:'1.0-0' }} SAR/month</p><p>Security deposit: {{ item.securityDeposit ? (item.securityDeposit | number:'1.0-0') + ' SAR' : 'None' }}</p></div><span class="status">{{ item.contractStatus }}</span>
           @if (item.contractStatus === 'PENDING') {
-            <div class="rental-actions"><button class="primary" type="button" [disabled]="busy() || today < item.startDate" (click)="acceptContract(item)">Accept contract</button><button class="small-button" type="button" [disabled]="busy()" (click)="rejectContract(item)">Reject</button>
+            <div class="rental-actions"><button class="primary" type="button" [disabled]="busy()" (click)="openContract(item)">Read full contract</button><button class="small-button" type="button" [disabled]="busy()" (click)="rejectContract(item)">Reject</button>
               @if (today < item.startDate) { <span class="muted">Acceptance opens on {{ item.startDate }}.</span> }
             </div>
-          }
+          } @else { <div class="rental-actions"><button class="small-button" type="button" (click)="openContract(item)">View full contract</button></div> }
         </article>
       } @empty { <p class="muted">No contracts yet. The owner creates one after approving a request.</p> }
     </section>
   }
+  @if (selectedContract(); as contract) {
+    <div class="contract-overlay" role="dialog" aria-modal="true" aria-label="Rental contract">
+      <section class="contract-dialog">
+        <div class="contract-dialog-header"><div><h2>Rental contract</h2><p>{{ apartmentName(contract.apartmentId) }} · {{ contract.contractNumber }}</p></div><button class="small-button" type="button" (click)="closeContract()">Close</button></div>
+        @if (pdfLoading()) { <p class="empty">Opening contract…</p> }
+        @if (pdfUrl()) { <iframe [src]="pdfUrl()" title="Full rental contract PDF"></iframe> }
+        @if (contract.contractStatus === 'PENDING' && auth.session()?.role === 'USER' && pdfUrl()) {
+          <div class="contract-dialog-actions">
+            <label><input type="checkbox" [checked]="reviewed()" (change)="reviewed.set($any($event.target).checked)"> I have read the full contract and agree to its terms.</label>
+            <button class="primary" type="button" [disabled]="!reviewed() || busy() || today < contract.startDate" (click)="acceptContract(contract)">Accept contract</button>
+          </div>
+        }
+      </section>
+    </div>
+  }
 </main>`})
-export class DashboardComponent {
+export class DashboardComponent implements OnDestroy {
   private http = inject(HttpClient);
+  private sanitizer = inject(DomSanitizer);
   auth = inject(AuthService);
   apartments = signal<Apartment[]>([]); buildings = signal<Building[]>([]);
   reservations = signal<Reservation[]>([]); contracts = signal<Contract[]>([]);
   loading = signal(true); busy = signal(false); error = signal(''); message = signal('');
   deposits: Record<number, number | null> = {};
   today = this.localDate(new Date());
+  selectedContract = signal<Contract | null>(null);
+  pdfUrl = signal<SafeResourceUrl | null>(null);
+  pdfLoading = signal(false);
+  reviewed = signal(false);
+  private objectUrl: string | null = null;
+  private previewRequestId = 0;
 
   // The API returns only this account's records; backend authorization verifies the same scope.
   load() {
@@ -111,6 +134,28 @@ export class DashboardComponent {
     return apartment ? `${building?.name ?? 'Apartment'} · ${apartment.apartmentNumber}` : `Apartment #${id}`;
   }
   contractFor(reservationId: number) { return this.contracts().find(item => item.reservationId === reservationId); }
+  // Fetch the authenticated PDF as a blob, then show it inside the dashboard.
+  openContract(item: Contract) {
+    this.closeContract();
+    const requestId = ++this.previewRequestId;
+    this.selectedContract.set(item); this.pdfLoading.set(true); this.error.set('');
+    this.http.get(`/api/v1/contract/get/${item.id}/pdf`, {responseType: 'blob'}).subscribe({next: pdf => {
+      if (requestId !== this.previewRequestId) return;
+      this.objectUrl = URL.createObjectURL(pdf);
+      this.pdfUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl));
+      this.pdfLoading.set(false);
+    }, error: (response: HttpErrorResponse) => {
+      if (requestId !== this.previewRequestId) return;
+      this.closeContract(); this.error.set(this.errorMessage(response));
+    }});
+  }
+  closeContract() {
+    this.previewRequestId++;
+    this.selectedContract.set(null); this.pdfUrl.set(null); this.pdfLoading.set(false); this.reviewed.set(false);
+    if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
+    this.objectUrl = null;
+  }
+  ngOnDestroy() { this.closeContract(); }
   approve(item: Reservation) { this.act(this.http.put(`/api/v1/reservation/accept/${this.accountId('OWNER')}/${item.id}`, {}), 'Request approved. You can now create the contract.'); }
   rejectReservation(item: Reservation) { this.act(this.http.put(`/api/v1/reservation/reject/${this.accountId('OWNER')}/${item.id}`, {}), 'Request rejected.'); }
   createContract(item: Reservation) {
@@ -120,7 +165,9 @@ export class DashboardComponent {
   }
   cancelReservation(item: Reservation) { this.act(this.http.put(`/api/v1/reservation/end/${this.accountId('USER')}/${item.id}`, {}), 'Request cancelled.'); }
   acceptContract(item: Contract) {
+    if (this.selectedContract()?.id !== item.id || !this.reviewed() || !this.pdfUrl()) return;
     if (!window.confirm(`Accept contract ${item.contractNumber} for ${item.monthlyRent} SAR per month?`)) return;
+    this.closeContract();
     this.act(this.http.put(`/api/v1/contract/accept/${item.id}/${this.accountId('USER')}`, {}), 'Contract accepted. The apartment is now rented.');
   }
   rejectContract(item: Contract) { this.act(this.http.put(`/api/v1/contract/reject/${item.id}/${this.accountId('USER')}`, {}), 'Contract rejected.'); }

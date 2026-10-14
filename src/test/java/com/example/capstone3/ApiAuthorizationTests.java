@@ -117,6 +117,17 @@ class ApiAuthorizationTests {
                 .header("Authorization", bearer(renter1))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         int contractId = json.readTree(contractsJson).get(0).get("id").asInt();
+        mvc.perform(get("/api/v1/contract/get/" + contractId + "/pdf")
+                .header("Authorization", bearer(renter2))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/contract/get/" + contractId + "/pdf")
+                .header("Authorization", bearer(renter1))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/contract/get/" + contractId + "/pdf")
+                .header("Authorization", bearer(owner1))).andExpect(status().isOk())
+                .andExpect(result -> {
+                    byte[] pdf = result.getResponse().getContentAsByteArray();
+                    org.junit.jupiter.api.Assertions.assertTrue(pdf.length > 1000);
+                    org.junit.jupiter.api.Assertions.assertTrue(new String(pdf, 0, 4).equals("%PDF"));
+                });
         mvc.perform(put("/api/v1/contract/accept/" + contractId + "/" + renter2.id())
                 .header("Authorization", bearer(renter2))).andExpect(status().isForbidden());
         mvc.perform(put("/api/v1/contract/accept/" + contractId + "/" + renter1.id())
