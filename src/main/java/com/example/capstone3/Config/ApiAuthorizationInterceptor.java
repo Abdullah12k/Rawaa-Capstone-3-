@@ -220,11 +220,11 @@ public class ApiAuthorizationInterceptor implements HandlerInterceptor {
     private boolean ownsApartment(AuthPrincipal a, Integer id) { Apartment x = id == null ? null : apartments.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getOwner().getId()); }
     private boolean apartmentOwnedBy(Integer apartmentId, Integer ownerId) { Apartment x = apartmentId == null ? null : apartments.findById(apartmentId).orElse(null); return x != null && ownerId != null && ownerId.equals(x.getOwner().getId()); }
     private boolean ownsPreference(AuthPrincipal a, Integer id) { UserPreference x = id == null ? null : preferences.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }
-    private boolean ownsReservation(AuthPrincipal a, Integer id) { Reservation x = id == null ? null : reservations.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getApartment().getOwner().getId()); }
-    private boolean userReservation(AuthPrincipal a, Integer id) { Reservation x = id == null ? null : reservations.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }
+    private boolean ownsReservation(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && reservations.existsByIdAndApartment_Owner_Id(id, a.id()); }
+    private boolean userReservation(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && reservations.existsByIdAndUser_Id(id, a.id()); }
     private boolean reservationParty(AuthPrincipal a, Integer id) { return ownsReservation(a, id) || userReservation(a, id); }
-    private boolean ownsContract(AuthPrincipal a, Integer id) { Contract x = id == null ? null : contracts.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getReservation().getApartment().getOwner().getId()); }
-    private boolean userContract(AuthPrincipal a, Integer id) { Contract x = id == null ? null : contracts.findById(id).orElse(null); return x != null && own(a, "USER", x.getReservation().getUser().getId()); }
+    private boolean ownsContract(AuthPrincipal a, Integer id) { return id != null && "OWNER".equals(a.role()) && contracts.existsByIdAndReservation_Apartment_Owner_Id(id, a.id()); }
+    private boolean userContract(AuthPrincipal a, Integer id) { return id != null && "USER".equals(a.role()) && contracts.existsByIdAndReservation_User_Id(id, a.id()); }
     private boolean contractParty(AuthPrincipal a, Integer id) { return ownsContract(a, id) || userContract(a, id); }
     private boolean ownsMaintenance(AuthPrincipal a, Integer id) { MaintenanceRequest x = id == null ? null : maintenance.findById(id).orElse(null); return x != null && own(a, "OWNER", x.getApartment().getOwner().getId()); }
     private boolean userMaintenance(AuthPrincipal a, Integer id) { MaintenanceRequest x = id == null ? null : maintenance.findById(id).orElse(null); return x != null && own(a, "USER", x.getUser().getId()); }

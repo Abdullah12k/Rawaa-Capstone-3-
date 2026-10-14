@@ -56,6 +56,11 @@ public class ReservationController {
         return ResponseEntity.status(200).body(reservationService.getOwnerPendingReservations(ownerId));
     }
 
+    @GetMapping("/get/owner/{ownerId}")
+    public ResponseEntity<?> getOwnerReservations(@PathVariable Integer ownerId) {
+        return ResponseEntity.ok(reservationService.getOwnerReservations(ownerId));
+    }
+
     @GetMapping("/get/user/{userId}")
     public ResponseEntity<?> getReservationsByUserId(@PathVariable Integer userId) {
         return ResponseEntity.status(200).body(reservationService.getReservationsByUserId(userId));

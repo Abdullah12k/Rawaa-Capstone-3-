@@ -15,6 +15,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 
@@ -29,6 +32,10 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ContractService {
+    private static final Logger log = LoggerFactory.getLogger(ContractService.class);
+
+    @Value("${app.notifications.email.enabled:false}")
+    private boolean contractEmailEnabled;
 
     // Unsigned pending contracts expire after three days
     private static final long PENDING_CONTRACT_EXPIRY_DAYS = 3;
@@ -115,10 +122,13 @@ public class ContractService {
         contractRepository.save(contract);
 
         whatsAppService.notifyTenantContractCreated(reservation.getUser(), contract);
-        try {
-            generateAndEmailContractPdf(contract.getId());
-        } catch (IOException | MessagingException e) {
-            throw new ApiException("Contract could not be sent to the tenant email");
+        // Email is optional for local testing. A mail outage must not roll back a valid contract.
+        if (contractEmailEnabled) {
+            try {
+                generateAndEmailContractPdf(contract.getId());
+            } catch (Exception e) {
+                log.warn("Contract {} was created, but its email could not be sent", contract.getId(), e);
+            }
         }
     }
 
@@ -317,10 +327,6 @@ public class ContractService {
 
         List<Contract> contracts = contractRepository.findContractsByReservation_User_Id(userId);
 
-        if (contracts.isEmpty()) {
-            throw new ApiException("No contracts were found for this user!");
-        }
-
         List<ContractDTOOut> contractDTOOuts = new ArrayList<>();
 
         for(Contract contract: contracts){
@@ -339,10 +345,6 @@ public class ContractService {
         }
 
         List<Contract> contracts = contractRepository.findContractsByReservation_Apartment_Owner_Id(ownerId);
-
-        if (contracts.isEmpty()) {
-            throw new ApiException("No contracts for this user were found!");
-        }
 
         List<ContractDTOOut> contractDTOOuts = new ArrayList<>();
 

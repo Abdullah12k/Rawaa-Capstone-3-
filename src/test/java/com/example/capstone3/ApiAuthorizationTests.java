@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -93,6 +94,33 @@ class ApiAuthorizationTests {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/message/get/" + messageId).header("Authorization", bearer(owner1)))
                 .andExpect(status().isOk());
+
+        // Exercise the rental flow and verify other accounts cannot read or change it.
+        String reservationBody = "{\"requestedStartDate\":\"" + LocalDate.now() + "\",\"rentalMonths\":12}";
+        String reservationJson = mvc.perform(post("/api/v1/reservation/add/" + renter1.id() + "/" + apartmentId)
+                .header("Authorization", bearer(renter1)).contentType(MediaType.APPLICATION_JSON)
+                .content(reservationBody)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int reservationId = json.readTree(reservationJson).get("id").asInt();
+        mvc.perform(get("/api/v1/reservation/get/owner/" + owner1.id()).header("Authorization", bearer(owner2)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/reservation/get/owner/" + owner1.id()).header("Authorization", bearer(owner1)))
+                .andExpect(status().isOk());
+        mvc.perform(put("/api/v1/reservation/accept/" + owner1.id() + "/" + reservationId)
+                .header("Authorization", bearer(owner2))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/reservation/accept/" + owner1.id() + "/" + reservationId)
+                .header("Authorization", bearer(owner1))).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/contract/add/" + owner1.id() + "/" + reservationId)
+                .header("Authorization", bearer(owner1)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"securityDeposit\":500}")).andExpect(status().isOk());
+        String contractsJson = mvc.perform(get("/api/v1/contract/user/" + renter1.id())
+                .header("Authorization", bearer(renter1))).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int contractId = json.readTree(contractsJson).get(0).get("id").asInt();
+        mvc.perform(put("/api/v1/contract/accept/" + contractId + "/" + renter2.id())
+                .header("Authorization", bearer(renter2))).andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/contract/accept/" + contractId + "/" + renter1.id())
+                .header("Authorization", bearer(renter1))).andExpect(status().isOk());
     }
 
     private Account register(String role, String name, String phone, String registration) throws Exception {

@@ -34,7 +34,7 @@ public class ContractController {
                                          @PathVariable Integer reservation_id) {
         contractService.addContract(contractDTOIn, ownerId, reservation_id);
         return ResponseEntity.status(200).body(
-                new ApiResponse("Contract added and sent to the tenant email successfully"));
+                new ApiResponse("Contract created successfully"));
     }
 
     @PutMapping("/update/{id}")

@@ -31,6 +31,8 @@ public class WhatsAppService {
     private String instanceId;
 
     private void sendMessage(String phoneNumber, String message) {
+        // Local development uses placeholder credentials; do not call the external API then.
+        if ("unused".equals(token) || "unused".equals(instanceId)) return;
         try {
             String url = "https://api.ultramsg.com/" + instanceId + "/messages/chat";
 

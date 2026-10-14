@@ -198,10 +198,6 @@ public class ReservationService {
 
         List<Reservation> reservations = reservationRepository.findReservationsByStatusAndApartment_OwnerId(ReservationStatus.PENDING, ownerId);
 
-        if(reservations.isEmpty()){
-            throw new ApiException("No pending reservations for this owner were found!");
-        }
-
         List<ReservationDTOOut> reservationDTOOuts = new ArrayList<>();
 
         for (Reservation reservation : reservations) {
@@ -209,6 +205,14 @@ public class ReservationService {
         }
 
         return reservationDTOOuts;
+    }
+
+    public List<ReservationDTOOut> getOwnerReservations(Integer ownerId) {
+        if (ownerRepository.findOwnerById(ownerId) == null) {
+            throw new ApiException("Owner not found");
+        }
+        return reservationRepository.findByApartment_Owner_Id(ownerId).stream()
+                .map(this::convertToDTO).toList();
     }
 
 
@@ -220,10 +224,6 @@ public class ReservationService {
         }
 
         List<Reservation> reservations = reservationRepository.findReservationsByUser_Id(userId);
-
-        if(reservations.isEmpty()){
-            throw new ApiException("No reservations for this user were found!");
-        }
 
         List<ReservationDTOOut> reservationDTOOuts = new ArrayList<>();
 

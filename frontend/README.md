@@ -20,7 +20,7 @@ Angular's development proxy forwards `/api` calls to `http://localhost:8080`, so
 | `src/app/auth.service.ts` | Login, registration, token storage, expiry check, and logout. |
 | `src/app/auth.interceptor.ts` | Adds `Authorization: Bearer <token>` to API requests and clears rejected sessions. |
 | `src/app/login.component.ts` | Renter/owner registration, sign-in, and readable validation errors. |
-| `src/app/dashboard.component.ts` | Landing page for signed-in accounts. |
+| `src/app/dashboard.component.ts` | Renter and owner dashboards for reservations and contracts. |
 | `src/app/map.component.ts` | Loads buildings and apartments, filters available listings, displays Leaflet markers, asks for browser location, and sends rental requests. |
 | `src/styles.css` | Shared visual styles and responsive layout. |
 | `proxy.conf.json` | Routes local `/api` requests to Spring Boot. |
@@ -31,7 +31,11 @@ Angular's development proxy forwards `/api` calls to `http://localhost:8080`, so
 2. A renter registers or signs in. The backend returns a JWT with the account role and ID.
 3. The frontend stores the session in `sessionStorage`, which lasts for the current browser tab. The route guard checks token expiry before opening the dashboard. The interceptor sends the token with API requests. Spring Boot validates authorization; frontend checks alone do not secure API access.
 4. The map can request the browser's location for a signed-in account. The browser controls permission and returns an estimated location with an accuracy radius. Rawaa does not save this location in the account.
-5. A renter selects an available apartment, chooses a start date and rental length, and sends a request. The API creates a `PENDING` reservation. Owner approval and the contract process happen later; the button does not complete a rental or charge anyone.
+5. A renter selects an available apartment, chooses a start date and rental length, and sends a request. The API creates a `PENDING` reservation.
+6. The owner reviews the request in their dashboard and approves or rejects it. An approved request becomes `APPROVED`, and the owner can create a `PENDING` contract with an optional security deposit.
+7. The renter sees the contract terms in their dashboard and can accept or reject them. The existing API permits acceptance on or after the contract start date. Acceptance changes the contract to `ACTIVE` and the apartment to `RENTED`. No payment is collected by this frontend.
+
+Contract email is optional in local development. Set `EMAIL_NOTIFICATIONS_ENABLED=true` only when working SMTP credentials are configured.
 
 ## Verify
 
