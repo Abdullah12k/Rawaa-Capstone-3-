@@ -4,6 +4,8 @@ import { tap } from 'rxjs';
 
 export interface Session { token: string; role: 'USER' | 'OWNER'; id: number; fullName: string }
 
+// Keeps the signed-in account for this browser tab and exposes it as an Angular signal.
+// sessionStorage is convenient for the UI; authorization is always enforced by Spring Boot.
 @Injectable({providedIn: 'root'})
 export class AuthService {
   private http = inject(HttpClient);
@@ -20,6 +22,7 @@ export class AuthService {
   logout() { sessionStorage.removeItem('rawaa-session'); this.session.set(null); }
 
   activeSession(): Session | null {
+    // JWT expiry is checked here so guards and the interceptor do not use a stale token.
     const session = this.session();
     if (!session) return null;
     try {

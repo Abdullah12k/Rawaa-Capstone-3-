@@ -35,6 +35,7 @@ export class LoginComponent {
   registerMode = false; role: 'user' | 'owner' = 'user';
   fullName = ''; phoneNumber = ''; gender = 'MALE'; childrenCount = 0; commercialRegistrationNumber = '';
   email = ''; password = ''; error = signal(''); busy = signal(false);
+  // Registration sends role-specific profile fields; login only sends email and password.
   submit() {
     this.error.set(''); this.busy.set(true);
     const profile = this.role === 'user'
@@ -43,6 +44,7 @@ export class LoginComponent {
     const request = this.registerMode ? this.auth.register(profile, this.password, this.role) : this.auth.login(this.email, this.password);
     request.subscribe({next: () => this.router.navigateByUrl('/dashboard'), error: (response: HttpErrorResponse) => {
       this.busy.set(false);
+      // Prefer the backend's validation message, then provide a useful fallback by status.
       const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
       const serverMessage = typeof body?.message === 'string' && body.message.trim() ? body.message.trim()
         : typeof body?.detail === 'string' && body.detail.trim() ? body.detail.trim() : '';

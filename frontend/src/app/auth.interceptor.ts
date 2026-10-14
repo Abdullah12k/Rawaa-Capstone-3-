@@ -3,6 +3,8 @@ import { inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { catchError, throwError } from 'rxjs';
 
+// Attach the current JWT to API calls except login/registration.
+// A 401 means the server rejected the session, so clear it in the browser.
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const token = auth.activeSession()?.token;

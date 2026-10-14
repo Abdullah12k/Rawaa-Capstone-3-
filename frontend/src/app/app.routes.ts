@@ -6,6 +6,7 @@ import { MapComponent } from './map.component';
 import { LoginComponent } from './login.component';
 import { DashboardComponent } from './dashboard.component';
 
+// The dashboard needs a valid, unexpired JWT. The backend still checks every API request.
 const authGuard = () => inject(AuthService).activeSession() ? true : inject(Router).createUrlTree(['/login']);
 
 export const routes: Routes = [

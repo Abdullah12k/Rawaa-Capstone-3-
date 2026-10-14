@@ -11,4 +11,5 @@ import { AuthService } from './auth.service';
   </header>
   <router-outlet />
 `})
+// The root component owns the shared navigation; the router fills in each page below it.
 export class AppComponent { auth = inject(AuthService); }

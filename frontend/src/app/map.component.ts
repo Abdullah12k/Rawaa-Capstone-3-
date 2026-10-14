@@ -1,13 +1,32 @@
 import { AfterViewInit, Component, OnDestroy, effect, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from './auth.service';
 import * as L from 'leaflet';
 
-interface Apartment { id: number; buildingId: number; apartmentNumber: string; district: string; monthlyRent: number; bedrooms: number; bathrooms: number; area: number; status: string; furnished: boolean }
-interface Building { id: number; name: string; city: string; district: string; street: string; latitude: number; longitude: number }
+// These are the API fields needed by this page. The backend may return more fields.
+interface Apartment {
+  id: number;
+  buildingId: number;
+  apartmentNumber: string;
+  district: string;
+  monthlyRent: number;
+  bedrooms: number;
+  bathrooms: number;
+  area: number;
+  status: string;
+  furnished: boolean;
+}
+interface Building {
+  id: number;
+  name: string;
+  city: string;
+  district: string;
+  street: string;
+  latitude: number;
+  longitude: number;
+}
 
 @Component({standalone: true, imports: [FormsModule, DecimalPipe], template: `
 <main class="explore">
@@ -66,10 +85,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   today = this.localDate(new Date()); startDate = this.today; rentalMonths = 12;
   reserving = signal(false); reservationMessage = signal(''); reservationError = signal('');
   reservedApartmentIds = new Set<number>();
+  private sessionAccountId: string | null = null;
 
   constructor() {
     effect(() => {
-      if (!this.auth.session()) {
+      const session = this.auth.session();
+      const accountId = session ? `${session.role}:${session.id}` : null;
+      // A request label belongs to one renter; switching accounts resets that local UI state.
+      if (accountId !== this.sessionAccountId) {
+        this.reservedApartmentIds.clear();
+        this.sessionAccountId = accountId;
+      }
+      if (!session) {
         this.userMarker?.remove(); this.accuracyCircle?.remove();
         this.userMarker = undefined; this.accuracyCircle = undefined; this.userLocation = undefined;
       }
@@ -77,6 +104,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
+    // Leaflet needs the rendered #map element, so initialization happens after view creation.
     this.map = L.map('map', {zoomControl: false}).setView([24.7136, 46.6753], 11);
     L.control.zoom({position: 'bottomright'}).addTo(this.map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '© OpenStreetMap contributors'}).addTo(this.map);
@@ -85,6 +113,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
   ngOnDestroy() { this.map?.remove(); this.map = undefined; }
   showMyLocation() {
+    // Browser geolocation requires user permission. The blue circle shows accuracy, not an exact point.
     if (!this.auth.activeSession()) { this.locationStatus.set('Log in to use your location.'); return; }
     if (!navigator.geolocation) { this.locationStatus.set('Location is unavailable in this browser.'); return; }
     this.locating.set(true); this.locationStatus.set('');
@@ -106,6 +135,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }, {enableHighAccuracy: true, timeout: 12000, maximumAge: 60000});
   }
   reload() {
+    // Apartments contain building IDs; fetch buildings first so list items and markers can join them.
     this.loading.set(true); this.error.set('');
     this.http.get<Building[]>('/api/v1/building/get').subscribe({next: buildings => {
       this.buildings = new Map(buildings.map(b => [b.id, b]));
@@ -115,6 +145,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }, error: () => { this.loading.set(false); this.error.set('Could not load buildings. Check that the API is running.'); }});
   }
   filter() {
+    // Only available apartments are loaded into this.apartments; filters affect the list and map together.
     const district = this.district.trim().toLowerCase();
     const result = this.apartments.filter(a => (!district || a.district?.toLowerCase().includes(district)) && (!this.maxRent || a.monthlyRent <= this.maxRent));
     this.visible.set(result); this.drawMarkers(result);
@@ -128,6 +159,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
   selectedApartment() { return this.apartments.find(a => a.id === this.selectedId()) ?? null; }
   reserve(apartment: Apartment) {
+    // Sending a request creates a PENDING reservation. Renting requires later owner approval.
     const session = this.auth.activeSession();
     if (session?.role !== 'USER') { this.reservationError.set('Log in as a renter to request this apartment.'); return; }
     if (!this.startDate || this.startDate < this.today || !Number.isInteger(this.rentalMonths) || this.rentalMonths < 1) {
@@ -151,9 +183,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     try { return JSON.parse(value); } catch { return null; }
   }
   private localDate(date: Date) {
+    // Build a Gregorian ISO date from local parts, independent of the browser's display locale.
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
   private drawMarkers(apartments: Apartment[]) {
+    // Rebuild markers after filtering; selecting either a list item or marker opens the same detail panel.
     this.markers.clearLayers(); const bounds: L.LatLngExpression[] = [];
     for (const apartment of apartments) {
       const building = this.buildingFor(apartment);

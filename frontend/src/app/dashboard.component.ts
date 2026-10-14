@@ -7,4 +7,5 @@ import { AuthService } from './auth.service';
 <p class="muted">Signed in as {{ auth.session()?.role === 'OWNER' ? 'a property owner' : 'a renter' }}.</p>
 <div class="dashboard-card"><h2>Find your next place</h2><p>Explore available apartments and view their buildings on the map.</p><a class="primary link-button" routerLink="/">Explore apartments</a></div>
 </main>`})
+// The protected landing page shown after login or registration.
 export class DashboardComponent { auth = inject(AuthService); }
