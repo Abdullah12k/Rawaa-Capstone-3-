@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -41,12 +42,14 @@ public class AuthController {
     public AuthResponse registerUser(@Valid @RequestBody UserRegistration request) {
         UserDTOIn p = request.profile();
         requireUniqueEmail(p.getEmail());
+        requireUniquePhone(p.getPhoneNumber());
         User user = new User();
         user.setFullName(p.getFullName()); user.setEmail(p.getEmail().trim().toLowerCase());
         user.setPhoneNumber(p.getPhoneNumber()); user.setGender(p.getGender());
         user.setDateOfBirth(p.getDateOfBirth()); user.setFamilyCount(p.getFamilyCount());
         user.setChildrenCount(p.getChildrenCount()); user.setPasswordHash(passwords.encode(request.password()));
-        users.save(user);
+        try { users.save(user); }
+        catch (DataIntegrityViolationException ex) { throw new ResponseStatusException(HttpStatus.CONFLICT, "Email or phone number is already registered"); }
         return token("USER", user.getId(), user.getFullName());
     }
 
@@ -54,12 +57,16 @@ public class AuthController {
     public AuthResponse registerOwner(@Valid @RequestBody OwnerRegistration request) {
         OwnerDTOIn p = request.profile();
         requireUniqueEmail(p.getEmail());
+        requireUniquePhone(p.getPhoneNumber());
+        if (owners.existsByCommercialRegistrationNumber(p.getCommercialRegistrationNumber()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Commercial registration number is already registered");
         Owner owner = new Owner();
         owner.setFullName(p.getFullName()); owner.setEmail(p.getEmail().trim().toLowerCase());
         owner.setPhoneNumber(p.getPhoneNumber());
         owner.setCommercialRegistrationNumber(p.getCommercialRegistrationNumber());
         owner.setPasswordHash(passwords.encode(request.password()));
-        owners.save(owner);
+        try { owners.save(owner); }
+        catch (DataIntegrityViolationException ex) { throw new ResponseStatusException(HttpStatus.CONFLICT, "Email, phone number, or commercial registration number is already registered"); }
         return token("OWNER", owner.getId(), owner.getFullName());
     }
 
@@ -77,6 +84,11 @@ public class AuthController {
     private void requireUniqueEmail(String email) {
         if (users.findByEmailIgnoreCase(email) != null || owners.findByEmailIgnoreCase(email) != null)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+    }
+
+    private void requireUniquePhone(String phoneNumber) {
+        if (users.existsByPhoneNumber(phoneNumber) || owners.existsByPhoneNumber(phoneNumber))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number is already registered");
     }
 
     private AuthResponse token(String role, Integer id, String name) {

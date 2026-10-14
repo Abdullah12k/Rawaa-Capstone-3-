@@ -37,6 +37,13 @@ class ApiAuthorizationTests {
         Account owner1 = register("owner", "o401", "0590040101", "1000000401");
         Account owner2 = register("owner", "o402", "0590040102", "1000000402");
 
+        mvc.perform(post("/api/v1/auth/register/user").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profile\":{\"fullName\":\"Duplicate\",\"email\":\"new401@example.test\",\"phoneNumber\":\"0500040101\",\"gender\":\"MALE\",\"childrenCount\":0},\"password\":\"ExamplePass123!\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/v1/auth/register/owner").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"profile\":{\"fullName\":\"Duplicate\",\"email\":\"newowner401@example.test\",\"phoneNumber\":\"0590040199\",\"commercialRegistrationNumber\":\"1000000401\"},\"password\":\"ExamplePass123!\"}"))
+                .andExpect(status().isConflict());
+
         mvc.perform(get("/api/v1/apartment/get")).andExpect(status().isOk());
         mvc.perform(get("/api/v1/user/get/" + renter1.id())).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/user/get/" + renter1.id()).header("Authorization", "Bearer invalid"))

@@ -43,13 +43,21 @@ export class LoginComponent {
     const request = this.registerMode ? this.auth.register(profile, this.password, this.role) : this.auth.login(this.email, this.password);
     request.subscribe({next: () => this.router.navigateByUrl('/dashboard'), error: (response: HttpErrorResponse) => {
       this.busy.set(false);
+      const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
+      const serverMessage = typeof body?.message === 'string' && body.message.trim() ? body.message.trim()
+        : typeof body?.detail === 'string' && body.detail.trim() ? body.detail.trim() : '';
       if (response.status === 0) {
         this.error.set('Cannot connect to the API. Check that the Spring Boot server is running.');
       } else if (!this.registerMode && response.status === 401) {
         this.error.set('Email or password is incorrect. If you registered in the earlier temporary demo, create an account here for MySQL.');
+      } else if (response.status === 400) {
+        this.error.set(serverMessage || 'Some details are invalid. Check each required field, email format, password length, and registration number.');
+      } else if (response.status === 409) {
+        this.error.set(serverMessage || 'An account already uses this email, phone number, or commercial registration number.');
+      } else if (response.status >= 500) {
+        this.error.set(`The server could not create the account (HTTP ${response.status}). Please try again; if it continues, share this status with the developer.`);
       } else {
-        const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
-        this.error.set(body?.message || body?.detail || (this.registerMode ? 'Could not create the account.' : 'Could not sign in.'));
+        this.error.set(serverMessage || `Request failed (HTTP ${response.status}). Please try again.`);
       }
     }});
   }
