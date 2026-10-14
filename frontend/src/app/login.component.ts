@@ -54,6 +54,12 @@ export class LoginComponent {
         this.error.set(serverMessage || 'Some details are invalid. Check each required field, email format, password length, and registration number.');
       } else if (response.status === 409) {
         this.error.set(serverMessage || 'An account already uses this email, phone number, or commercial registration number.');
+      } else if (response.status === 403) {
+        this.error.set('The server blocked this request (HTTP 403). Refresh the page and try again; if it continues, check the local CORS settings.');
+      } else if (response.status === 404) {
+        this.error.set('The registration service was not found (HTTP 404). Check that the Spring Boot server is running the V2 code.');
+      } else if (response.status === 429) {
+        this.error.set('Too many attempts. Please wait a moment and try again.');
       } else if (response.status >= 500) {
         this.error.set(`The server could not create the account (HTTP ${response.status}). Please try again; if it continues, share this status with the developer.`);
       } else {
