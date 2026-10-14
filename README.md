@@ -1,5 +1,27 @@
 # Smart Rental Recommendation Platform
 
+## Angular frontend and JWT login
+
+The `frontend/` Angular app shows available apartments on an interactive OpenStreetMap map using the Spring Boot building coordinates. It includes renter and owner registration, login, a guarded dashboard route, and an HTTP interceptor that sends JWT bearer tokens to the API.
+
+### Run locally
+
+1. Create the MySQL database `capstone3` and set the database credentials in `src/main/resources/application.properties` as needed.
+2. Set `JWT_SECRET` to a base64 encoded random key of at least 32 bytes. For example, in PowerShell: `$env:JWT_SECRET = [Convert]::ToBase64String((1..32 | ForEach-Object { [byte](Get-Random -Maximum 256) }))`. Keep this key private and stable across server restarts if existing tokens should remain valid.
+3. Set the existing `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `ULTRAMSG_TOKEN`, `ULTRAMSG_INSTANCE`, and `OPENAI_API_KEY` variables required by the backend configuration.
+4. Run `./mvnw.cmd spring-boot:run` on Windows, or `./mvnw spring-boot:run` on macOS/Linux.
+5. In `frontend/`, run `pnpm install` and `pnpm start`, then open `http://localhost:4200`.
+
+The Angular development server proxies `/api` to `http://localhost:8080`. Public map data comes from `GET /api/v1/building/get` and `GET /api/v1/apartment/get`. Map tiles require internet access.
+
+Signed-in users can show their device location on the map. The browser asks for location permission and returns an estimated position and accuracy radius; the frontend draws both and keeps the coordinates in the browser only. Use **My location** to retry. This feature works on `localhost` or an HTTPS site, and precision depends on the device and browser.
+
+For a quick local smoke test without MySQL or external API credentials, run the backend with the `local` profile after setting `JWT_SECRET`: `./mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local`. This uses an in-memory H2 database. Data disappears when the backend stops.
+
+Authentication endpoints are `POST /api/v1/auth/register/user`, `POST /api/v1/auth/register/owner`, and `POST /api/v1/auth/login`. Registration takes `{ "profile": { ...existing UserDTOIn or OwnerDTOIn fields... }, "password": "at least 8 characters" }`; login takes `{ "email": "...", "password": "..." }`. Responses contain a signed 12 hour JWT, role, ID, and name. Passwords are stored as BCrypt hashes. The old passwordless `/user/add` and `/owner/add` endpoints have been removed.
+
+**Authorization:** Rawaa follows the JWT service and authentication filter pattern used in `MenaAndFeena`. The filter validates the signature and expiry, reloads the account from the database, and assigns `USER` or `OWNER` authority. Public access is limited to registration, login, and apartment/building browsing. Other API routes pass a deny-by-default ownership check against the signed-in account and the related database record. The old unrestricted collection endpoints (for example, all users, reservations, conversations, and messages) return 403. Generic conversation create/update/delete endpoints are also denied because they could change or erase another participant's messages; conversations are created through the first user message. Existing user and owner rows created before this change have no password and cannot log in until migrated. The schema now uses `ddl-auto=update` so data survives restarts; manage production schema changes with migrations.
+
 ## Project Overview
 
 The Smart Rental Recommendation Platform is a Spring Boot backend that supports the complete apartment rental lifecycle for renters and property owners.

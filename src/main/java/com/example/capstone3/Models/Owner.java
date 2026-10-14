@@ -27,6 +27,9 @@ public class Owner {
     @Column(name = "email", nullable = false, unique = true, length = 150)
     private String email;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     @Column(name = "phone_number", nullable = false, unique = true, length = 20)
     private String phoneNumber;
 
