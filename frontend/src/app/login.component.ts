@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from './auth.service';
 
 @Component({standalone: true, imports: [FormsModule], template: `
@@ -40,8 +41,20 @@ export class LoginComponent {
       ? {fullName: this.fullName, email: this.email, phoneNumber: this.phoneNumber, gender: this.gender, childrenCount: this.childrenCount}
       : {fullName: this.fullName, email: this.email, phoneNumber: this.phoneNumber, commercialRegistrationNumber: this.commercialRegistrationNumber};
     const request = this.registerMode ? this.auth.register(profile, this.password, this.role) : this.auth.login(this.email, this.password);
-    request.subscribe({next: () => this.router.navigateByUrl('/dashboard'), error: response => {
-      this.busy.set(false); this.error.set(response.error?.message || response.error?.detail || 'Could not sign in. Check your details.');
+    request.subscribe({next: () => this.router.navigateByUrl('/dashboard'), error: (response: HttpErrorResponse) => {
+      this.busy.set(false);
+      if (response.status === 0) {
+        this.error.set('Cannot connect to the API. Check that the Spring Boot server is running.');
+      } else if (!this.registerMode && response.status === 401) {
+        this.error.set('Email or password is incorrect. If you registered in the earlier temporary demo, create an account here for MySQL.');
+      } else {
+        const body = typeof response.error === 'string' ? this.parseError(response.error) : response.error;
+        this.error.set(body?.message || body?.detail || (this.registerMode ? 'Could not create the account.' : 'Could not sign in.'));
+      }
     }});
+  }
+
+  private parseError(text: string): {message?: string; detail?: string} | null {
+    try { return JSON.parse(text); } catch { return null; }
   }
 }
