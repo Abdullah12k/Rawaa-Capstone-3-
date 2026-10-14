@@ -33,7 +33,7 @@ interface Building {
   <section class="intro"><p class="eyebrow">FIND YOUR PLACE</p><h1>Room to live beautifully.</h1><p>Explore rental homes across the city, right on the map.</p></section>
   <div class="workspace">
     <aside class="list-panel">
-      <div class="panel-heading"><div><h2>Explore apartments</h2><p>{{ visible().length }} homes found</p></div><button class="small-button" (click)="reload()">Refresh</button></div>
+      <div class="panel-heading"><div><h2>Explore apartments</h2><p>{{ visible().length }} {{ visible().length === 1 ? 'home' : 'homes' }} found</p></div><button class="small-button" (click)="reload()">Refresh</button></div>
       <div class="filters"><label>District<input [(ngModel)]="district" (ngModelChange)="filter()" placeholder="Any district"></label><label>Max rent (SAR)<input type="number" min="0" [(ngModel)]="maxRent" (ngModelChange)="filter()" placeholder="Any price"></label></div>
       @if (selectedApartment(); as apartment) {
         <section class="reservation-panel">
