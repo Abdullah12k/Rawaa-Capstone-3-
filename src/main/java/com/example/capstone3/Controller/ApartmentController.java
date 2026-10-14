@@ -1,12 +1,14 @@
 package com.example.capstone3.Controller;
 
 import com.example.capstone3.Api.ApiResponse;
+import com.example.capstone3.Config.AuthPrincipal;
 import com.example.capstone3.DTO.In.ApartmentDTOIn;
 import com.example.capstone3.DTO.Out.ApartmentDTOOut;
 import com.example.capstone3.Service.ApartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -30,8 +32,9 @@ public class ApartmentController {
     }
 
     @PostMapping("/add/{ownerId}/{buildingId}")
-    public ResponseEntity<?> addApartment(@PathVariable Integer ownerId, @PathVariable Integer buildingId, @RequestBody @Valid ApartmentDTOIn apartmentDTOIn) {
-        apartmentService.addApartment(ownerId, buildingId, apartmentDTOIn);
+    public ResponseEntity<?> addApartment(@PathVariable Integer ownerId, @PathVariable Integer buildingId, @RequestBody @Valid ApartmentDTOIn apartmentDTOIn,
+                                          @AuthenticationPrincipal AuthPrincipal owner) {
+        apartmentService.addApartment(owner.requireOwner(ownerId), buildingId, apartmentDTOIn);
         return ResponseEntity.status(200).body(new ApiResponse("Apartment added successfully"));
     }
 
@@ -53,13 +56,14 @@ public class ApartmentController {
     }
 
     @GetMapping("/low-rated/{ownerId}/{buildingId}")
-    public ResponseEntity<?> getLowRatedApartmentsByBuilding(@PathVariable Integer ownerId, @PathVariable Integer buildingId) {
-        return ResponseEntity.status(200).body(apartmentService.getLowRatedApartmentsByBuilding(ownerId, buildingId));
+    public ResponseEntity<?> getLowRatedApartmentsByBuilding(@PathVariable Integer ownerId, @PathVariable Integer buildingId,
+                                                              @AuthenticationPrincipal AuthPrincipal owner) {
+        return ResponseEntity.status(200).body(apartmentService.getLowRatedApartmentsByBuilding(owner.requireOwner(ownerId), buildingId));
     }
 
     @GetMapping("/dashboard/{ownerId}")
-    public ResponseEntity<?> getOwnerDashboard(@PathVariable Integer ownerId) {
-        return ResponseEntity.status(200).body(apartmentService.getOwnerDashboard(ownerId));
+    public ResponseEntity<?> getOwnerDashboard(@PathVariable Integer ownerId, @AuthenticationPrincipal AuthPrincipal owner) {
+        return ResponseEntity.status(200).body(apartmentService.getOwnerDashboard(owner.requireOwner(ownerId)));
     }
 
     @GetMapping("/search")
@@ -70,14 +74,16 @@ public class ApartmentController {
     }
 
     @PutMapping("/available/{ownerId}/{apartmentId}")
-    public ResponseEntity<?> makeApartmentAvailable(@PathVariable Integer ownerId, @PathVariable Integer apartmentId) {
-        apartmentService.toggleAvailableMode(ownerId, apartmentId);
+    public ResponseEntity<?> makeApartmentAvailable(@PathVariable Integer ownerId, @PathVariable Integer apartmentId,
+                                                    @AuthenticationPrincipal AuthPrincipal owner) {
+        apartmentService.toggleAvailableMode(owner.requireOwner(ownerId), apartmentId);
         return ResponseEntity.status(200).body(new ApiResponse("Apartment is now available"));
     }
 
     @PutMapping("/toggle-maintenance/{ownerId}/{apartmentId}")
-    public ResponseEntity<?> makeApartmentUnderMaintenance(@PathVariable Integer ownerId, @PathVariable Integer apartmentId) {
-        apartmentService.toggleMaintenanceMode(ownerId, apartmentId);
+    public ResponseEntity<?> makeApartmentUnderMaintenance(@PathVariable Integer ownerId, @PathVariable Integer apartmentId,
+                                                           @AuthenticationPrincipal AuthPrincipal owner) {
+        apartmentService.toggleMaintenanceMode(owner.requireOwner(ownerId), apartmentId);
         return ResponseEntity.status(200).body(new ApiResponse("Apartment is now under maintenance"));
     }
 
@@ -92,8 +98,8 @@ public class ApartmentController {
     }
 
     @GetMapping("/flagged/{ownerId}")
-    public ResponseEntity<?> getFlaggedApartmentsByCancellationRate(@PathVariable Integer ownerId) {
-        return ResponseEntity.status(200).body(apartmentService.getFlaggedApartmentsByCancellationRate(ownerId));
+    public ResponseEntity<?> getFlaggedApartmentsByCancellationRate(@PathVariable Integer ownerId, @AuthenticationPrincipal AuthPrincipal owner) {
+        return ResponseEntity.status(200).body(apartmentService.getFlaggedApartmentsByCancellationRate(owner.requireOwner(ownerId)));
     }
 
 

@@ -1,11 +1,13 @@
 package com.example.capstone3.Controller;
 
 import com.example.capstone3.Api.ApiResponse;
+import com.example.capstone3.Config.AuthPrincipal;
 import com.example.capstone3.DTO.In.BuildingDTOIn;
 import com.example.capstone3.Service.BuildingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,8 +28,9 @@ public class BuildingController {
     }
 
     @PostMapping("/add/{owner_id}")
-    public ResponseEntity<?> addBuilding(@RequestBody @Valid BuildingDTOIn buildingDTOIn, @PathVariable Integer owner_id) {
-        buildingService.addBuilding(buildingDTOIn, owner_id);
+    public ResponseEntity<?> addBuilding(@RequestBody @Valid BuildingDTOIn buildingDTOIn, @PathVariable Integer owner_id,
+                                         @AuthenticationPrincipal AuthPrincipal owner) {
+        buildingService.addBuilding(buildingDTOIn, owner.requireOwner(owner_id));
         return ResponseEntity.status(200).body(new ApiResponse("Building added successfully"));
     }
 

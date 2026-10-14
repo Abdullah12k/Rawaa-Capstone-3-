@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import com.example.capstone3.Config.AuthPrincipal;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,25 +24,19 @@ public class UserController {
 
     @GetMapping("/get/{id}")
     public ResponseEntity<?> getUser(@PathVariable Integer id, @AuthenticationPrincipal AuthPrincipal principal) {
-        requireSelf(principal, id);
-        return ResponseEntity.status(200).body(userService.getUser(id));
+        return ResponseEntity.status(200).body(userService.getUser(principal.requireUser(id)));
     }
 
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody @Valid UserDTOIn userDTOIn, @AuthenticationPrincipal AuthPrincipal principal) {
-        requireSelf(principal, id);
-        userService.updateUser(id, userDTOIn);
+        userService.updateUser(principal.requireUser(id), userDTOIn);
         return ResponseEntity.status(200).body(new ApiResponse("User updated successfully"));
     }
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Integer id, @AuthenticationPrincipal AuthPrincipal principal) {
-        requireSelf(principal, id);
-        userService.deleteUser(id);
+        userService.deleteUser(principal.requireUser(id));
         return ResponseEntity.status(200).body(new ApiResponse("User deleted successfully"));
     }
 
-    private void requireSelf(AuthPrincipal principal, Integer id) {
-        if (!principal.role().equals("USER") || !principal.id().equals(id)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-    }
 }
